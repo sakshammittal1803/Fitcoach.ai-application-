@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google OAuth</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background: #f6f7f8;
+        }
+        .container {
+            text-align: center;
+            padding: 2rem;
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 90%;
+        }
+        h1 {
+            color: #137fec;
+            margin-bottom: 1rem;
+        }
+        #buttonDiv {
+            margin: 2rem 0;
+        }
+        .status {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.9rem;
+        }
+        .success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏃‍♂️ Fitcoach AI Login</h1>
+        <p>Click the button below to sign in with Google</p>
+        <div id="buttonDiv"></div>
+        <div id="status"></div>
+    </div>
+    
+    <script>
+        const CLIENT_ID = '219698154777-pgfdc5edt6aakgi4ti00dmqvq4qlh4dm.apps.googleusercontent.com';
+        
+        function handleCredentialResponse(response) {
+            console.log("Google login successful!");
+            
+            try {
+                // Decode the JWT token
+                const userInfo = decodeJwtResponse(response.credential);
+                console.log('User info:', userInfo);
+                
+                // Save to localStorage
+                const userData = {
+                    id: userInfo.sub,
+                    name: userInfo.name,
+                    email: userInfo.email,
+                    picture: userInfo.picture,
+                    given_name: userInfo.given_name,
+                    family_name: userInfo.family_name,
+                };
+                
+                localStorage.setItem('googleUser', JSON.stringify(userData));
+                localStorage.setItem('userName', userData.name);
+                
+                // Show success message
+                document.getElementById('status').innerHTML = 
+                    `<div class="status success">✅ Login successful!<br>Welcome, ${userData.name}!</div>`;
+                
+                // Redirect parent window after a short delay
+                setTimeout(() => {
+                    if (window.opener) {
+                        // If opened as popup, redirect parent
+                        const userProfile = localStorage.getItem('userProfile');
+                        if (userProfile) {
+                            window.opener.location.href = '/chat';
+                        } else {
+                            window.opener.location.href = '/onboarding';
+                        }
+                        window.close();
+                    } else {
+                        // If opened directly, redirect this window
+                        const userProfile = localStorage.getItem('userProfile');
+                        if (userProfile) {
+                            window.location.href = '/chat';
+                        } else {
+                            window.location.href = '/onboarding';
+                        }
+                    }
+                }, 2000);
+                
+            } catch (error) {
+                console.error('Error processing login:', error);
+                document.getElementById('status').innerHTML = 
+                    `<div class="status error">❌ Error processing login: ${error.message}</div>`;
+            }
+        }
+        
+        function decodeJwtResponse(token) {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(
+                atob(base64).split('').map(c => 
+                    '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+                ).join('')
+            );
+            return JSON.parse(jsonPayload);
+        }
+        
+        window.onload = function () {
+            try {
+                google.accounts.id.initialize({
+                    client_id: CLIENT_ID,
+                    callback: handleCredentialResponse
+                });
+                
+                google.accounts.id.renderButton(
+                    document.getElementById("buttonDiv"),
+                    { 
+                        theme: "outline", 
+                        size: "large",
+                        width: 300,
+                        text: "signin_with"
+                    }
+                );
+                
+                // Also try to show the one-tap prompt
+                google.accounts.id.prompt();
+                
+                document.getElementById('status').innerHTML = 
+                    '<div class="status">Google OAuth ready. Click the button above to sign in.</div>';
+                    
+            } catch (error) {
+                console.error('Initialization error:', error);
+                document.getElementById('status').innerHTML = 
+                    `<div class="status error">❌ Initialization failed: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>
